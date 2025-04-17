@@ -1771,9 +1771,6 @@
 
                             const todaySlots = employeeSchedule[day.toLowerCase()].slots;
                             
-                            // Convert server time to Date object for comparison
-                            const currentTime = new Date(`1970-01-01T${localTime}`);
-                            
                             // Sort slots by check-in time
                             const sortedSlots = [...todaySlots].sort((a, b) => {
                                 const timeA = new Date(`1970-01-01T${a.checkIn}`);
@@ -1784,18 +1781,18 @@
                             // Get the earliest slot for today
                             const earliestSlot = sortedSlots[0];
                             const slotStart = new Date(`1970-01-01T${earliestSlot.checkIn}`);
+                            const currentTime = new Date(`1970-01-01T${localTime}`);
                             
                             // Calculate time windows using server time
                             const earlyCheckIn = new Date(slotStart.getTime() - 60 * 60 * 1000); // 60 minutes before
                             const lateCheckIn = new Date(slotStart.getTime() + 30 * 60 * 1000); // 30 minutes after
                             
-                            // Check if current time is within valid check-in window
+                            // Validate time window
                             if (currentTime < earlyCheckIn) {
                                 alert("You cannot check in more than 60 minutes before your scheduled time.");
                                 return;
                             }
 
-                            // Check if we're past the regular check-in window
                             if (currentTime > lateCheckIn) {
                                 if (confirm("Regular check-in time has passed. Would you like to perform a late check-in instead?")) {
                                     handleLateCheckIn();
@@ -4982,6 +4979,7 @@
                                     return;
                                 }
 
+                                // Check time windows
                                 if (currentTime < earlyCheckIn) {
                                     checkInBtn.disabled = true;
                                     checkInBtn.title = "Cannot check in more than 60 minutes before scheduled time";
