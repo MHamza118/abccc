@@ -474,33 +474,6 @@
                 font-size: 12px;
             }
         }
-
-        #checkInBtn:disabled {
-            background-color: #cccccc !important;
-            color: #666666 !important;
-            border: 1px solid #999999 !important;
-            cursor: not-allowed !important;
-            pointer-events: none !important;
-            opacity: 0.5 !important;
-        }
-        
-        #checkInBtn[disabled]:hover {
-            background-color: #cccccc !important;
-            color: #666666 !important;
-            border: 1px solid #999999 !important;
-            cursor: not-allowed !important;
-            pointer-events: none !important;
-            opacity: 0.5 !important;
-        }
-        
-        #checkInBtn[disabled]:active {
-            background-color: #cccccc !important;
-            color: #666666 !important;
-            border: 1px solid #999999 !important;
-            cursor: not-allowed !important;
-            pointer-events: none !important;
-            opacity: 0.5 !important;
-        }
     </style>
 </head>
 
@@ -655,7 +628,7 @@
                 <div class="employee-header" id="employeeHeader">
                     <p id="employeeDetails">Hamza | ID: 118</p>
                     <div class="action-buttons">
-                        <button id="checkInBtn">Check In</button>
+                        <button onclick="handleCheckIn()">Check In</button>
                         <button onclick="handleCheckOut()">Check Out</button>
                         <button id="lateCheckInBtn" onclick="handleLateCheckIn()">Add Late Check-In</button>
                     </div>
@@ -1789,25 +1762,25 @@
                         // Get latest data directly from Firebase
                         database.ref("timeTables").once('value', (snapshot) => {
                             const timeTables = snapshot.val() || [];
-                            const employeeSchedule = timeTables.find((t) => t.employee === employee);
+                        const employeeSchedule = timeTables.find((t) => t.employee === employee);
 
-                            if (!employeeSchedule || !employeeSchedule[day.toLowerCase()]?.slots) {
+                        if (!employeeSchedule || !employeeSchedule[day.toLowerCase()]?.slots) {
                                 alert("No schedule found for today. Please contact your administrator.");
-                                return;
-                            }
+                            return;
+                        }
 
-                            const todaySlots = employeeSchedule[day.toLowerCase()].slots;
-                            
-                            // Sort slots by check-in time
-                            const sortedSlots = [...todaySlots].sort((a, b) => {
-                                const timeA = new Date(`1970-01-01T${a.checkIn}`);
-                                const timeB = new Date(`1970-01-01T${b.checkIn}`);
-                                return timeA - timeB;
-                            });
+                        const todaySlots = employeeSchedule[day.toLowerCase()].slots;
+                        
+                        // Sort slots by check-in time
+                        const sortedSlots = [...todaySlots].sort((a, b) => {
+                            const timeA = new Date(`1970-01-01T${a.checkIn}`);
+                            const timeB = new Date(`1970-01-01T${b.checkIn}`);
+                            return timeA - timeB;
+                        });
 
-                            // Get the earliest slot for today
-                            const earliestSlot = sortedSlots[0];
-                            const slotStart = new Date(`1970-01-01T${earliestSlot.checkIn}`);
+                        // Get the earliest slot for today
+                        const earliestSlot = sortedSlots[0];
+                        const slotStart = new Date(`1970-01-01T${earliestSlot.checkIn}`);
                             const currentTime = new Date(`1970-01-01T${localTime}`);
                             
                             // Calculate time windows using server time
@@ -1828,17 +1801,17 @@
                             // Get latest attendance records from Firebase
                             database.ref("attendanceRecords").once('value', (snapshot) => {
                                 const attendanceRecords = snapshot.val() || [];
-                                const todayRecord = attendanceRecords.find(
+                            const todayRecord = attendanceRecords.find(
                                     record => record.employee === employee && standardizeDate(record.date) === date
-                                );
-                                
-                                if (todayRecord && todayRecord.checkIn) {
-                                    if (confirm("You have already checked in today. Do you want to add another check-in?")) {
+                            );
+                            
+                            if (todayRecord && todayRecord.checkIn) {
+                                if (confirm("You have already checked in today. Do you want to add another check-in?")) {
                                         recordCheckIn(employee, date, day, localTime, false);
-                                    }
-                                } else {
+                                        }
+                                    } else {
                                     recordCheckIn(employee, date, day, localTime, false);
-                                }
+                            }
                             });
                         });
                     });
@@ -4965,9 +4938,6 @@
 
                             if (!employeeSchedule) {
                                 checkInBtn.disabled = true;
-                                checkInBtn.style.opacity = "0.5";
-                                checkInBtn.style.cursor = "not-allowed";
-                                checkInBtn.style.pointerEvents = "none";
                                 checkInBtn.title = "No schedule found for today";
                                 return;
                             }
@@ -4976,9 +4946,6 @@
 
                             if (todaySlots.length === 0) {
                                 checkInBtn.disabled = true;
-                                checkInBtn.style.opacity = "0.5";
-                                checkInBtn.style.cursor = "not-allowed";
-                                checkInBtn.style.pointerEvents = "none";
                                 checkInBtn.title = "No schedule found for today";
                                 return;
                             }
@@ -5006,9 +4973,6 @@
                                 // If already checked in today, disable regular check-in
                                 if (todayRecord && todayRecord.checkIn) {
                                     checkInBtn.disabled = true;
-                                    checkInBtn.style.opacity = "0.5";
-                                    checkInBtn.style.cursor = "not-allowed";
-                                    checkInBtn.style.pointerEvents = "none";
                                     checkInBtn.title = "You have already checked in today";
                                     return;
                                 }
@@ -5016,29 +4980,41 @@
                                 // Strict time window validation
                                 if (currentTime < earlyCheckIn) {
                                     checkInBtn.disabled = true;
-                                    checkInBtn.style.opacity = "0.5";
-                                    checkInBtn.style.cursor = "not-allowed";
-                                    checkInBtn.style.pointerEvents = "none";
                                     checkInBtn.title = "Cannot check in more than 60 minutes before scheduled time";
                                 } else if (currentTime > lateCheckIn) {
                                     checkInBtn.disabled = true;
-                                    checkInBtn.style.opacity = "0.5";
-                                    checkInBtn.style.cursor = "not-allowed";
-                                    checkInBtn.style.pointerEvents = "none";
                                     checkInBtn.title = "Regular check-in time has passed. Please use late check-in";
                                 } else {
                                     checkInBtn.disabled = false;
-                                    checkInBtn.style.opacity = "1";
-                                    checkInBtn.style.cursor = "pointer";
-                                    checkInBtn.style.pointerEvents = "auto";
                                     checkInBtn.title = "Check in";
                                 }
                             });
                         });
                     });
                 }
+                // Add Firebase listeners for real-time updates
+                database.ref("timeTables").on('value', (snapshot) => {
+                    const timeTables = snapshot.val() || [];
+                    localStorage.setItem("timeTables", JSON.stringify(timeTables));
+                    updateCheckInButtonState();
+                });
+
+                database.ref("attendanceRecords").on('value', (snapshot) => {
+                    const attendanceRecords = snapshot.val() || [];
+                    localStorage.setItem("attendanceRecords", JSON.stringify(attendanceRecords));
+                    updateCheckInButtonState();
+                });
+
+                // Update button state more frequently
+                setInterval(updateCheckInButtonState, 5000); // Update every 5 seconds
+
+                // Initialize button state on page load
+                document.addEventListener('DOMContentLoaded', () => {
+                    updateCheckInButtonState();
+                });
             </script>
         </div>
     </div>
 </body>
 </html>
+
