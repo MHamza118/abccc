@@ -474,6 +474,33 @@
                 font-size: 12px;
             }
         }
+
+        #checkInBtn:disabled {
+            background-color: #cccccc !important;
+            color: #666666 !important;
+            border: 1px solid #999999 !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+            opacity: 0.5 !important;
+        }
+        
+        #checkInBtn[disabled]:hover {
+            background-color: #cccccc !important;
+            color: #666666 !important;
+            border: 1px solid #999999 !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+            opacity: 0.5 !important;
+        }
+        
+        #checkInBtn[disabled]:active {
+            background-color: #cccccc !important;
+            color: #666666 !important;
+            border: 1px solid #999999 !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+            opacity: 0.5 !important;
+        }
     </style>
 </head>
 
@@ -628,7 +655,7 @@
                 <div class="employee-header" id="employeeHeader">
                     <p id="employeeDetails">Hamza | ID: 118</p>
                     <div class="action-buttons">
-                        <button onclick="handleCheckIn()">Check In</button>
+                        <button id="checkInBtn">Check In</button>
                         <button onclick="handleCheckOut()">Check Out</button>
                         <button id="lateCheckInBtn" onclick="handleLateCheckIn()">Add Late Check-In</button>
                     </div>
@@ -1787,16 +1814,14 @@
                             const earlyCheckIn = new Date(slotStart.getTime() - 60 * 60 * 1000); // 60 minutes before
                             const lateCheckIn = new Date(slotStart.getTime() + 30 * 60 * 1000); // 30 minutes after
                             
-                            // Validate time window
+                            // Strict time validation
                             if (currentTime < earlyCheckIn) {
                                 alert("You cannot check in more than 60 minutes before your scheduled time.");
                                 return;
                             }
 
                             if (currentTime > lateCheckIn) {
-                                if (confirm("Regular check-in time has passed. Would you like to perform a late check-in instead?")) {
-                                    handleLateCheckIn();
-                                }
+                                alert("Regular check-in time has passed. Please use the late check-in option.");
                                 return;
                             }
 
@@ -4940,6 +4965,9 @@
 
                             if (!employeeSchedule) {
                                 checkInBtn.disabled = true;
+                                checkInBtn.style.opacity = "0.5";
+                                checkInBtn.style.cursor = "not-allowed";
+                                checkInBtn.style.pointerEvents = "none";
                                 checkInBtn.title = "No schedule found for today";
                                 return;
                             }
@@ -4948,6 +4976,9 @@
 
                             if (todaySlots.length === 0) {
                                 checkInBtn.disabled = true;
+                                checkInBtn.style.opacity = "0.5";
+                                checkInBtn.style.cursor = "not-allowed";
+                                checkInBtn.style.pointerEvents = "none";
                                 checkInBtn.title = "No schedule found for today";
                                 return;
                             }
@@ -4975,19 +5006,31 @@
                                 // If already checked in today, disable regular check-in
                                 if (todayRecord && todayRecord.checkIn) {
                                     checkInBtn.disabled = true;
+                                    checkInBtn.style.opacity = "0.5";
+                                    checkInBtn.style.cursor = "not-allowed";
+                                    checkInBtn.style.pointerEvents = "none";
                                     checkInBtn.title = "You have already checked in today";
                                     return;
                                 }
 
-                                // Check time windows
+                                // Strict time window validation
                                 if (currentTime < earlyCheckIn) {
                                     checkInBtn.disabled = true;
+                                    checkInBtn.style.opacity = "0.5";
+                                    checkInBtn.style.cursor = "not-allowed";
+                                    checkInBtn.style.pointerEvents = "none";
                                     checkInBtn.title = "Cannot check in more than 60 minutes before scheduled time";
                                 } else if (currentTime > lateCheckIn) {
                                     checkInBtn.disabled = true;
+                                    checkInBtn.style.opacity = "0.5";
+                                    checkInBtn.style.cursor = "not-allowed";
+                                    checkInBtn.style.pointerEvents = "none";
                                     checkInBtn.title = "Regular check-in time has passed. Please use late check-in";
                                 } else {
                                     checkInBtn.disabled = false;
+                                    checkInBtn.style.opacity = "1";
+                                    checkInBtn.style.cursor = "pointer";
+                                    checkInBtn.style.pointerEvents = "auto";
                                     checkInBtn.title = "Check in";
                                 }
                             });
