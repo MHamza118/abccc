@@ -1803,14 +1803,7 @@
                                 record => record.employee === employee && standardizeDate(record.date) === date
                             );
                             
-                            if (todayRecord && todayRecord.checkIn) {
-                                if (confirm("You have already checked in today. Do you want to add another check-in?")) {
-                                    recordCheckIn(employee, date, day, localTime, false);
-                                }
-                            } else {
-                                recordCheckIn(employee, date, day, localTime, false);
-                            }
-                        });
+                         });
                     });
                 }
 
