@@ -1764,17 +1764,16 @@
                     updateCheckInButtonStates();
                     setupTimeTableListener();
                 });
-
                 setInterval(updateCheckInButtonStates, 60000); // Check every minute
                 function handleCheckIn() {
                     const now = new Date();
                     const employee = document.getElementById("employeeDetails").textContent.split("|")[0].trim();
                     const date = standardizeDate(now);
-                    const localTime = now.toLocaleTimeString();
+                    const localTime = now.toLocaleTimeString('en-US', { hour12: false }); // Use 24-hour format
                     const day = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][now.getDay()];
 
                     getFirebaseData("timeTables", (firebaseTimeTables) => {
-                        const timeTables = firebaseTimeTables || [];  // Remove localStorage fallback
+                        const timeTables = firebaseTimeTables || [];
                         const employeeSchedule = timeTables.find((t) => t.employee === employee);
 
                         if (!employeeSchedule || !employeeSchedule[day.toLowerCase()]?.slots) {
@@ -1783,7 +1782,10 @@
                         }
 
                         const todaySlots = employeeSchedule[day.toLowerCase()].slots;
-                        const currentTime = new Date(`1970-01-01T${localTime}`);
+
+                        // Convert current time to comparable format
+                        const currentTimeStr = now.toLocaleTimeString('en-US', { hour12: false });
+                        const currentTime = new Date(`1970-01-01T${currentTimeStr}`);
 
                         // Find the next available slot
                         const availableSlot = todaySlots.find(slot => {
@@ -1820,9 +1822,12 @@
                             if (todayRecord) {
                                 const checkIns = Array.isArray(todayRecord.checkIn) ? todayRecord.checkIn : [todayRecord.checkIn];
                                 const alreadyCheckedInForSlot = checkIns.some(checkIn => {
-                                    const checkInTime = new Date(`1970-01-01T${checkIn}`);
-                                    const slotStart = new Date(`1970-01-01T${availableSlot.checkIn}`);
-                                    return Math.abs(checkInTime - slotStart) < (2 * 60 * 60 * 1000); // Within 2 hours of slot
+                                    if (typeof checkIn === 'object' && checkIn.time) {
+                                        const checkInTime = new Date(`1970-01-01T${checkIn.time}`);
+                                        const slotStart = new Date(`1970-01-01T${availableSlot.checkIn}`);
+                                        return Math.abs(checkInTime - slotStart) < (2 * 60 * 60 * 1000); // Within 2 hours of slot
+                                    }
+                                    return false;
                                 });
 
                                 if (alreadyCheckedInForSlot) {
@@ -1845,19 +1850,20 @@
                     const day = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][now.getDay()];
 
                     getFirebaseData("timeTables", (firebaseTimeTables) => {
-                        const timeTables = firebaseTimeTables || [];  // Remove localStorage fallback
+                        const timeTables = firebaseTimeTables || [];
                         const employeeSchedule = timeTables.find((t) => t.employee === employee);
 
                         if (!employeeSchedule || !employeeSchedule[day.toLowerCase()]?.slots) return;
 
                         const todaySlots = employeeSchedule[day.toLowerCase()].slots;
-                        const currentTime = new Date();
+                        const currentTimeStr = now.toLocaleTimeString('en-US', { hour12: false });
+                        const currentTime = new Date(`1970-01-01T${currentTimeStr}`);
 
                         // Check if any slot is currently active
                         const hasActiveSlot = todaySlots.some(slot => {
                             const slotTime = new Date(`1970-01-01T${slot.checkIn}`);
-                            const earlyWindow = new Date(slotTime.getTime() - 60 * 60 * 1000);
-                            const lateWindow = new Date(slotTime.getTime() + 30 * 60 * 1000);
+                            const earlyWindow = new Date(slotTime.getTime() - 60 * 60 * 1000); // 60 minutes before
+                            const lateWindow = new Date(slotTime.getTime() + 30 * 60 * 1000);  // 30 minutes after
                             return currentTime >= earlyWindow && currentTime <= lateWindow;
                         });
 
@@ -1874,27 +1880,23 @@
                             (record) => record.employee === employee && record.date === date
                         );
 
-                        const checkInData = {
-                            time: time,
-                            slotTime: slotTime,
-                            isLate: isLate
-                        };
-
                         if (recordIndex === -1) {
                             const newRecord = {
                                 employee: employee,
                                 date: date,
                                 day: day,
-                                checkIn: [checkInData],
+                                checkIn: time,
+                                isLate: isLate,
                                 timestamp: new Date().toISOString()
                             };
                             attendanceRecords.push(newRecord);
                         } else {
                             const existingRecord = attendanceRecords[recordIndex];
                             if (!Array.isArray(existingRecord.checkIn)) {
-                                existingRecord.checkIn = [existingRecord.checkIn];
+                                existingRecord.checkIn = existingRecord.checkIn ? [existingRecord.checkIn] : [];
                             }
-                            existingRecord.checkIn.push(checkInData);
+                            existingRecord.checkIn.push(time);
+                            existingRecord.isLate = isLate;
                             existingRecord.timestamp = new Date().toISOString();
                         }
 
@@ -3186,82 +3188,66 @@
                         // Sort records by date in descending order (newest first)
                         employeeRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-                        // Group records by date
-                        const groupedRecords = employeeRecords.reduce((acc, record) => {
-                            if (!acc[record.date]) {
-                                acc[record.date] = {
-                                    employee: record.employee,
-                                    date: record.date,
-                                    day: record.day,
-                                    checkIns: [],
-                                    checkOuts: [],
-                                    lateCheckIns: []
-                                };
-                            }
+                        const tableBody = document.getElementById("attendanceTable");
+                        if (!tableBody) return;
+                        tableBody.innerHTML = "";
+
+                        employeeRecords.forEach(record => {
+                            const row = document.createElement("tr");
+                            
+                            // Format check-in times
+                            let checkInDisplay = "-";
                             if (record.checkIn) {
                                 if (Array.isArray(record.checkIn)) {
-                                    acc[record.date].checkIns.push(...record.checkIn);
+                                    checkInDisplay = record.checkIn.map(checkIn => {
+                                        if (typeof checkIn === 'object' && checkIn.time) {
+                                            return checkIn.time;
+                                        }
+                                        return checkIn;
+                                    }).join(", ");
+                                } else if (typeof record.checkIn === 'object' && record.checkIn.time) {
+                                    checkInDisplay = record.checkIn.time;
                                 } else {
-                                    acc[record.date].checkIns.push(record.checkIn);
+                                    checkInDisplay = record.checkIn;
                                 }
                             }
+
+                            // Format check-out times
+                            let checkOutDisplay = "-";
                             if (record.checkOut) {
                                 if (Array.isArray(record.checkOut)) {
-                                    acc[record.date].checkOuts.push(...record.checkOut);
+                                    checkOutDisplay = record.checkOut.join(", ");
                                 } else {
-                                    acc[record.date].checkOuts.push(record.checkOut);
+                                    checkOutDisplay = record.checkOut;
                                 }
                             }
-                            return acc;
-                        }, {});
 
-                        // Get late check-ins
-                        getFirebaseData("lateCheckIns", (firebaseLateCheckIns) => {
-                            const lateCheckIns = firebaseLateCheckIns || [];
-                            lateCheckIns.forEach(late => {
-                                if (late.employee === employee && groupedRecords[late.date]) {
-                                    groupedRecords[late.date].lateCheckIns.push(late.time);
-                                }
-                            });
+                            // Format late check-ins
+                            let lateCheckInDisplay = "-";
+                            if (record.isLate) {
+                                lateCheckInDisplay = "Yes";
+                            }
 
-                            const tableBody = document.getElementById("attendanceTable");
-                            if (!tableBody) return;
-                            tableBody.innerHTML = "";
+                            // Calculate working hours
+                            let workingHours = "-";
+                            if (record.checkIn && record.checkOut) {
+                                const checkInTime = new Date(`2000-01-01T${Array.isArray(record.checkIn) ? record.checkIn[0].time || record.checkIn[0] : record.checkIn.time || record.checkIn}`);
+                                const checkOutTime = new Date(`2000-01-01T${Array.isArray(record.checkOut) ? record.checkOut[record.checkOut.length - 1] : record.checkOut}`);
+                                const diffMs = checkOutTime - checkInTime;
+                                const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+                                const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                                workingHours = `${diffHrs}h ${diffMins}m`;
+                            }
 
-                            // Sort dates in descending order
-                            const sortedDates = Object.keys(groupedRecords).sort((a, b) => new Date(b) - new Date(a));
-
-                            sortedDates.forEach(date => {
-                                const record = groupedRecords[date];
-                                const checkInTimes = record.checkIns.sort((a, b) => new Date(`1970-01-01T${a}`) - new Date(`1970-01-01T${b}`));
-                                const checkOutTimes = record.checkOuts.sort((a, b) => new Date(`1970-01-01T${b}`) - new Date(`1970-01-01T${a}`));
-                                const lateCheckInTimes = record.lateCheckIns.sort((a, b) => new Date(`1970-01-01T${b}`) - new Date(`1970-01-01T${a}`));
-
-                                const workingHours = calculateWorkingHours(
-                                    checkInTimes,
-                                    checkOutTimes,
-                                    lateCheckInTimes
-                                );
-
-                                const row = document.createElement("tr");
-                                row.innerHTML = `
-                                        <td>${record.date}</td>
-                                        <td>${record.day}</td>
-                                    <td>
-                                        <select class="check-in-select" onchange="updateWorkingHours(this)">
-                                            ${checkInTimes.map(time => `<option value="${time}">${time}</option>`).join('')}
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <select class="check-out-select" onchange="updateWorkingHours(this)">
-                                            ${checkOutTimes.map(time => `<option value="${time}">${time}</option>`).join('')}
-                                        </select>
-                                    </td>
-                                    <td>${lateCheckInTimes[0] || "-"}</td>
-                                    <td>${workingHours}</td>
-                                    `;
-                                tableBody.appendChild(row);
-                            });
+                            row.innerHTML = `
+                                <td>${record.date}</td>
+                                <td>${record.day}</td>
+                                <td>${checkInDisplay}</td>
+                                <td>${checkOutDisplay}</td>
+                                <td>${lateCheckInDisplay}</td>
+                                <td>${workingHours}</td>
+                            `;
+                            tableBody.appendChild(row);
                         });
                     });
                 }
@@ -4029,82 +4015,59 @@
                         // Sort records by date in descending order (newest first)
                         employeeRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-                        // Group records by date
-                        const groupedRecords = employeeRecords.reduce((acc, record) => {
-                            if (!acc[record.date]) {
-                                acc[record.date] = {
-                                    employee: record.employee,
-                                    date: record.date,
-                                    day: record.day,
-                                    checkIns: [],
-                                    checkOuts: [],
-                                    lateCheckIns: []
-                                };
-                            }
+                        const tableBody = document.getElementById("attendanceTable");
+                        if (!tableBody) return;
+                        tableBody.innerHTML = "";
+
+                        employeeRecords.forEach(record => {
+                            const row = document.createElement("tr");
+                            
+                            // Format check-in times
+                            let checkInDisplay = "-";
                             if (record.checkIn) {
                                 if (Array.isArray(record.checkIn)) {
-                                    acc[record.date].checkIns.push(...record.checkIn);
+                                    checkInDisplay = record.checkIn.join(", ");
                                 } else {
-                                    acc[record.date].checkIns.push(record.checkIn);
+                                    checkInDisplay = record.checkIn;
                                 }
                             }
+
+                            // Format check-out times
+                            let checkOutDisplay = "-";
                             if (record.checkOut) {
                                 if (Array.isArray(record.checkOut)) {
-                                    acc[record.date].checkOuts.push(...record.checkOut);
+                                    checkOutDisplay = record.checkOut.join(", ");
                                 } else {
-                                    acc[record.date].checkOuts.push(record.checkOut);
+                                    checkOutDisplay = record.checkOut;
                                 }
                             }
-                            return acc;
-                        }, {});
 
-                        // Get late check-ins
-                        getFirebaseData("lateCheckIns", (firebaseLateCheckIns) => {
-                            const lateCheckIns = firebaseLateCheckIns || [];
-                            lateCheckIns.forEach(late => {
-                                if (late.employee === employee && groupedRecords[late.date]) {
-                                    groupedRecords[late.date].lateCheckIns.push(late.time);
-                                }
-                            });
+                            // Format late check-ins
+                            let lateCheckInDisplay = "-";
+                            if (record.isLate) {
+                                lateCheckInDisplay = "Yes";
+                            }
 
-                            const tableBody = document.getElementById("attendanceTable");
-                            if (!tableBody) return;
-                            tableBody.innerHTML = "";
+                            // Calculate working hours
+                            let workingHours = "-";
+                            if (record.checkIn && record.checkOut) {
+                                const checkInTime = new Date(`2000-01-01T${Array.isArray(record.checkIn) ? record.checkIn[0].time || record.checkIn[0] : record.checkIn.time || record.checkIn}`);
+                                const checkOutTime = new Date(`2000-01-01T${Array.isArray(record.checkOut) ? record.checkOut[record.checkOut.length - 1] : record.checkOut}`);
+                                const diffMs = checkOutTime - checkInTime;
+                                const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+                                const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                                workingHours = `${diffHrs}h ${diffMins}m`;
+                            }
 
-                            // Sort dates in descending order
-                            const sortedDates = Object.keys(groupedRecords).sort((a, b) => new Date(b) - new Date(a));
-
-                            sortedDates.forEach(date => {
-                                const record = groupedRecords[date];
-                                const checkInTimes = record.checkIns.sort((a, b) => new Date(`1970-01-01T${a}`) - new Date(`1970-01-01T${b}`));
-                                const checkOutTimes = record.checkOuts.sort((a, b) => new Date(`1970-01-01T${b}`) - new Date(`1970-01-01T${a}`));
-                                const lateCheckInTimes = record.lateCheckIns.sort((a, b) => new Date(`1970-01-01T${b}`) - new Date(`1970-01-01T${a}`));
-
-                                const workingHours = calculateWorkingHours(
-                                    checkInTimes,
-                                    checkOutTimes,
-                                    lateCheckInTimes
-                                );
-
-                                const row = document.createElement("tr");
-                                row.innerHTML = `
-                                        <td>${record.date}</td>
-                                        <td>${record.day}</td>
-                                        <td>
-                                        <select class="check-in-select" onchange="updateWorkingHours(this)">
-                                            ${checkInTimes.map(time => `<option value="${time}">${time}</option>`).join('')}
-                                            </select>
-                                        </td>
-                                        <td>
-                                        <select class="check-out-select" onchange="updateWorkingHours(this)">
-                                            ${checkOutTimes.map(time => `<option value="${time}">${time}</option>`).join('')}
-                                            </select>
-                                        </td>
-                                    <td>${lateCheckInTimes[0] || "-"}</td>
-                                    <td>${workingHours}</td>
-                                `;
-                                tableBody.appendChild(row);
-                            });
+                            row.innerHTML = `
+                                <td>${record.date}</td>
+                                <td>${record.day}</td>
+                                <td>${checkInDisplay}</td>
+                                <td>${checkOutDisplay}</td>
+                                <td>${lateCheckInDisplay}</td>
+                                <td>${workingHours}</td>
+                            `;
+                            tableBody.appendChild(row);
                         });
                     });
                 }
@@ -4128,7 +4091,6 @@
                             const checkOutTime = timeToMinutes(checkOut);
                             return checkInTime < checkOutTime;
                         });
-
                         if (!validCheckIn) {
                             return "Invalid: Check-out time is earlier than check-in time";
                         }
